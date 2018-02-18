@@ -9,7 +9,7 @@ Here some references and doc I used
 - (IONiseR) http://bioconductor.org/packages/release/bioc/html/IONiseR.html
 - (rhdf5) http://bioconductor.org/packages/release/bioc/html/rhdf5.html 
 
-### using_poretools_and_minimap2_and_samtools
+### using_poretools_and_minimap2_and_samtools.sh
 In this file you can see my steps how to create the *.bam file from the raw
 data. I used poretools, minimap2 aligner and samtools.
 
