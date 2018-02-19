@@ -9,8 +9,8 @@ library(GenomicFeatures)
 # Reading stuff
 path_bam <- "path to bam"
 path_gtf <- "path to gtf"
-bam <- readGAlignments(path_bam, use.names = T) #Nanopore data *.bam Alignment
-gtf = makeTxDbFromGFF(path_gtf, format="gtf") # file is gtf location
+bam <- readGAlignments(path_bam, use.names = T)
+gtf = makeTxDbFromGFF(path_gtf, format="gtf")
 
 # Making reference transcripts
 transcripts <- transcriptsBy(gtf, "gene")
@@ -21,13 +21,13 @@ transcripts <- transcriptsBy(gtf, "gene")
 
 # Finding overlaps
 hits = findOverlaps(transcripts, bam) # hits object containing all hits
-# hits = countOverlaps(transcripts, foo) # Just an Integer array
+# hits = countOverlaps(transcripts, foo) # Just an Integer array, need hits-object
 
 # Seperate all overlaps by name
-traceNames <- bam[to(hits)]@NAMES # alle foo har hits med transcripts
+traceNames <- bam[to(hits)]@NAMES # all seq from bam that have hits with transcripts
 
 # Other stuff that may be useful?
-transcripts[from(hits)] # alle transcripts som har hits med foo 
+transcripts[from(hits)] # all transcripts that have hits with bam
 
 
 #########################################################################################
