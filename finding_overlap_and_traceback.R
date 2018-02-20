@@ -17,7 +17,7 @@ transcripts <- transcriptsBy(gtf, "gene")
 # transcripts <- exonsBy(gtf, by="tx", use.names = T) # Making transcripts exon ???
 # transcripts <- transcriptsBy(gtf, "cds")
 # transcripts <- transcriptsBy(gtf, "exon")
-# transcripts <- extractTranscriptSeqs(gtf, use.names = T) # ??? is not working, no genome, how to import *.fa as genome?
+# transcripts <- extractTranscriptSeqs(gtf, use.names = T) # ??? is not working, no genome, how to import *.fa as BSgenome?
 
 # Finding overlaps
 hits = findOverlaps(transcripts, bam) # hits object containing all hits
