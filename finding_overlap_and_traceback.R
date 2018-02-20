@@ -38,7 +38,7 @@ find_fast5_filename <- function(filepath_fastq, traceNames) {
   t <- traceNames
   f <- file(filepath_fastq, "r")
   fast5_filenames <- vector(mode = "character", length = 0)
-  while ( TRUE ) {
+  while(TRUE) {
     line = readLines(f, n = 1)
     if ( length(line) == 0 ) {
       break
