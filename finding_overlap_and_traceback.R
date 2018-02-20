@@ -52,7 +52,7 @@ find_fast5_filename <- function(filepath_fastq, traceNames) {
       if(is.na(pos)) next
       # If match, add filename to file-list
       fast5_filenames[length(fast5_filenames)+1] <- splitLine[2]
-      # Delete all entries for this match at the trace list for better performans
+      # Delete all entries for this match at the trace list for better performance
       t <- t[! t %in% splitLine[1]]
     }
   }
