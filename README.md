@@ -13,3 +13,5 @@ data. I used poretools, minimap2 aligner and samtools.
 In this file I show what I did so far to finding overlaps. I also wrote a
 function that can be used for backtracing to the *.fast5 files
 
+### finding_polyA.R
+In this file you can find some function I wrote to find the ployA. 
