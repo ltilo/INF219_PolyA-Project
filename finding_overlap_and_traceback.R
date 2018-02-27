@@ -63,5 +63,5 @@ find_fast5_filenames <- function(path_fastq, traceNames) {
   return(fast5_filenames)
 }
 
-f5FileList <- find_fast5_filename(path_fastq, traceNames)
+f5FileList <- find_fast5_filenames(path_fastq, traceNames)
 
