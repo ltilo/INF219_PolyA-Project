@@ -1,4 +1,7 @@
-path_0 <- "/home/florian/Schreibtisch/Uni/Inf219/Data/0/"
+library(rhdf5)
+library(ggplot2)
+
+path_0 <- "../Data/0/"
 f5List <- paste0(path_0, f5FileList)
 
 ########################################################################################
@@ -61,7 +64,7 @@ calcMeanOfRaw <- function(rawData, alphaV = 0.03){
     meanA[length(meanA)+1] <- meanA[length(meanA)] * (1-alphaV) + mean(raw[value:(value+1)]) * alphaV
     meanB[length(meanB)+1] <- meanB[length(meanB)] * (1-alphaV) + mean(revRaw[value:(value+1)]) * alphaV
   }
-  df <- data_frame(meanA, rev(meanB), rawData$Time)
+  df <- data.frame(meanA, rev(meanB), rawData$Time)
   colnames(df) <- c("Mean", "MeanB", "Time")
   return(df)
 }
