@@ -7,23 +7,25 @@ library(GenomicFeatures)
 #########################################################################################
 
 # Reading stuff
-path_bam <- "path to bam (shield)"
-path_gtf <- "path to gtf (bartel)"
-path_fastq <- "path to fastq (shield)"
+path_bam <- "../Data/shield_pass_0.bam"
+path_gtf <- "../Data/Bartel/Danio_rerio.Zv9.79.gtf"
+path_fastq <- "../Data/shield_pass_0.fastq"
 
 bam <- readGAlignments(path_bam, use.names = T)
 gtf = makeTxDbFromGFF(path_gtf, format="gtf")
 
 # Making reference transcripts
-transcripts <- transcriptsBy(gtf, c("gene", "exon", "cds"))
-# transcripts <- extractTranscriptSeqs(gtf, use.names = T) # no genome, do I need to import *.fa as BSgenome? How?
+transcripts <- exonsBy(gtf, by = "tx")
+
+# TODO Filter only coding genes
+
 
 # Finding overlaps
 hits = findOverlaps(transcripts, bam) # hits object containing all hits
 # hits = countOverlaps(transcripts, foo) # Just an Integer array, need hits-object
 
 # Seperate all overlaps by name, all seq from bam that have hits with transcripts
-traceNames <- bam[to(hits)]@NAMES 
+traceNames <- names(bam[to(hits)])
 
 # Other stuff that may be useful?
 #transcripts[from(hits)] # all transcripts that have hits with bam
@@ -32,7 +34,12 @@ traceNames <- bam[to(hits)]@NAMES
 # Traceback to *.fast5 files that overlaps 
 #########################################################################################
 
-find_fast5_filename <- function(path_fastq, traceNames) {
+#' This function finds the names of the corresponding *.fast5 files
+#' 
+#' @param path_fastq String, Path to the fastq file containing all filenames
+#' @param traceNames Character vector containing traceNames that overlaps to reference
+#' @return Character vector containing *.fast5 filenames that matches traceNames
+find_fast5_filenames <- function(path_fastq, traceNames) {
   t <- traceNames
   f <- file(path_fastq, "r")
   fast5_filenames <- vector(mode = "character", length = 0)

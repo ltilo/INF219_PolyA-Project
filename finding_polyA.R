@@ -61,7 +61,7 @@ calcMeanOfRaw <- function(rawData, alphaV = 0.03){
     meanA[length(meanA)+1] <- meanA[length(meanA)] * (1-alphaV) + mean(raw[value:(value+1)]) * alphaV
     meanB[length(meanB)+1] <- meanB[length(meanB)] * (1-alphaV) + mean(revRaw[value:(value+1)]) * alphaV
   }
-  df <- data_frame(meanA, rev(meanB), c(1:length(meanA)))
+  df <- data_frame(meanA, rev(meanB), rawData$Time)
   colnames(df) <- c("Mean", "MeanB", "Time")
   return(df)
 }
@@ -104,35 +104,7 @@ calcStatOfRaw <- function(scopeSize = 100, rawData){
 findPolyA <- function(rawData){
   rawData$PolyA <- 0
   
-  # Stats scope 100
-  scopeSize <- 100
-  raw.stat <- calcStatOfRaw(scopeSize, raw)
-  # PolyA Tails Mean seems to be around 775db +/- 75db
-  area <- which(raw.stat$Mean < 850 & raw.stat$Mean > 700)
-  # Seperate areas
-  sIdx <- vector(mode = "integer", length = 0)
-  eIdx <- vector(mode = "integer", length = 0)
-  oldValue <- -999
-  # area <- area[2:length(area)]
-  b <- FALSE
-  for(value in area){
-    if( value-1 == oldValue & !b){
-      sIdx[length(sIdx)+1] <- oldValue
-      b <- TRUE
-    }
-    else if( value-1 != oldValue & b){
-      eIdx[length(eIdx)+1] <- oldValue
-      b <- FALSE;
-    }
-    oldValue <- value
-  }
-  
-  # place polyA area
-  for(value in c(1:length(sIdx))){
-    s <- sIdx[value] - 1
-    e <- eIdx[value] + 1
-    rawData$PolyA[(s*scopeSize) : (e*scopeSize)] <- 1
-  }
+  # TODO find polyA
   
   return(rawData)
 }
