@@ -38,7 +38,7 @@ poretools fastq 0/ > shield_pass_0.fastq
 head shield_pass_0.fastq
 
 # Using minimap2 aligner
-~/Application/minimap2/minimap2 -ax splice -l14 -t 8 -uf /Bartel/Danio_rerio.Zv9.fa shield_pass_0.fastq > shield_pass_0.sam 
+~/Application/minimap2/minimap2 -ax splice -k14 -t 8 -uf /Bartel/Danio_rerio.Zv9.fa shield_pass_0.fastq > shield_pass_0.sam 
 
 # Using samtools to convert sam file to bam file
 samtools view -Sb shield_pass_0.sam > shield_pass_0.bam
