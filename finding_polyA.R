@@ -45,6 +45,7 @@ plotAllRaw <- function(f5FileList){
   "#673770", "#D3D93E", "#38333E", "#508578", "#D7C1B1", "#689030", "#AD6F3B", "#CD9BCD", 
   "#D14285", "#6DDE88", "#652926", "#7FDCC0", "#C84248", "#8569D5", "#5E738F", "#D1A33D", 
   "#8A7C64", "#599861")
+  
   for(f5 in f5FileList){
     rawData <- extractRaw(f5)
     rawData.stats <- calcMeanOfRaw(rawData)
