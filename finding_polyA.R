@@ -35,6 +35,27 @@ plotRaw <- function(rawData, showPolyA = FALSE){
     return(ggplot(rawData, aes(Time, Raw)) + geom_line())
 }
 
+#' Plot all raw data from given *.fast5 filelist. The raw data will be plotted on top of each other.
+#' 
+#' @param f5FileList List over *.fast5 that you want to plot the raw from.
+#' @return The ggplot2 plot that shows the data on top of each other
+plotAllRaw <- function(f5FileList){
+  plot <- ggplot()
+  colors <- c("#89C5DA", "#DA5724", "#74D944", "#CE50CA", "#3F4921", "#C0717C", "#CBD588", "#5F7FC7", 
+  "#673770", "#D3D93E", "#38333E", "#508578", "#D7C1B1", "#689030", "#AD6F3B", "#CD9BCD", 
+  "#D14285", "#6DDE88", "#652926", "#7FDCC0", "#C84248", "#8569D5", "#5E738F", "#D1A33D", 
+  "#8A7C64", "#599861")
+  for(f5 in f5FileList){
+    rawData <- extractRaw(f5)
+    rawData.stats <- calcMeanOfRaw(rawData)
+    if(length(rawData$Raw) > 20000)
+      plot <- plot + geom_line(data = rawData.stats[1:20000,], aes(x=Time, y=MeanB), color=sample(colors, 1))
+    else
+      plot <- plot + geom_line(data = rawData.stats, aes(x=Time, y=MeanB), color=sample(colors, 1))
+  }
+  return(plot)
+}
+
 # Other plot
 # ggplot(raw.plot, aes(x=Time)) + geom_line(aes(y=Raw, colour="Raw")) + geom_line(aes(y=Mean, colour="Mean")) + scale_color_manual(values=c("blue", "#FE2E2E"))
 
