@@ -70,7 +70,7 @@ plotAllRaw <- function(f5FileList){
 #' @param rawData Dataframe containing raw data you want to process
 #' @param alphaV The alpha value that let you control how much you want to smooth out the mean
 #' @return Dataframe containing mean, reverse mean and time on the data.
-calcMeanOfRaw <- function(rawData, alphaV = 0.03){
+calcMeanOfRaw <- function(rawData, alphaV = 0.05){
   raw <- rawData$Raw
   revRaw <- rev(raw)
   
@@ -97,7 +97,7 @@ calcMeanOfRaw <- function(rawData, alphaV = 0.03){
 #' @param scopeSize The size of the scope
 #' @param rawData Dataframe containing the raw data you want to process
 #' @return Dataframe containing the calculated stats
-calcStatOfRaw <- function(scopeSize = 100, rawData){
+calcStatOfRaw <- function(rawData, scopeSize = 10){
   raw <- rawData$Raw
   
   meanOfScopes <- vector(mode = "double", length = 0)
@@ -117,8 +117,12 @@ calcStatOfRaw <- function(scopeSize = 100, rawData){
     
     idx <- idx2
   }
-  stats <- data.frame(meanOfScopes, varOfScopes, maxOfScopes, minOfScopes)
-  colnames(stats) <- c("Mean", "Var", "Max", "Min")
+  
+  timeOfScopes <- 1:length(varOfScopes)
+  timeOfScopes <- timeOfScopes * scopeSize
+  
+  stats <- data.frame(meanOfScopes, varOfScopes, maxOfScopes, minOfScopes, timeOfScopes)
+  colnames(stats) <- c("Mean", "Var", "Max", "Min", "Time")
   return(stats)
 }
 
@@ -129,7 +133,63 @@ calcStatOfRaw <- function(scopeSize = 100, rawData){
 findPolyA <- function(rawData){
   rawData$PolyA <- 0
   
-  # TODO find polyA
+  stat <- calcStatOfRaw(rawData)
+  
+  # Finding possible beginning of polyA
+  starts <- which(stat$Mean < 500) # where I except that a polyA starts below 500
+  starts <- starts[starts > (1000/10)] # where 1000 is the minimum time threshold and 10 the scope size of stat 
+  
+  # Evaluate if there is a PolyA
+  for(v in starts){
+    idx = 1
+    while(!FALSE){
+      
+      if((v+idx) > length(stat$Mean)) { break() }
+      
+      if(stat$Mean[v+idx] > stat$Mean[v+idx-1]){
+        if(stat$Mean[v+idx] > 750){ # where I except that polyA is growing to higher than 750
+          # At this point, v has high proberbility to be startpoint
+          #i <- (v*10):((v+idx)*10)
+          #rawData$PolyA[i] <- 1;
+          endPolyA <- v + idx
+          
+          # Evaluate length of polyA
+          c <- rle(as.numeric(stat$Mean[v+idx:length(stat$Mean)] > 700)) # where 700 is my polyA-end threshold
+          i = 1
+          while(!FALSE){
+            val <- c$values[i]
+            len <- c$lengths[i]
+            
+            if(val == 1){
+              if(len > 10){ # where 10 is my minimum length threshold
+                endPolyA <- endPolyA + len 
+              }
+              else{ break() }
+            }
+            else{
+              # Check if this is noisy drop in polyA 
+              len2 <- c$lengths[i+1]
+              if(len2 > 10){ # where 10 is my minimum length threshold
+                endPolyA <- endPolyA + len
+              }
+              else { break() }
+            }
+            i <- i + 1
+          }
+          # Mark possible tail
+          rawData$PolyA[(v*10):((endPolyA)*10)] <- 1
+        }
+      }
+      else{
+        break()
+      }
+      idx <- idx + 1
+    }
+  }
+  
+  
+  # TODO find polyA length, start, end
+  
   
   return(rawData)
 }
