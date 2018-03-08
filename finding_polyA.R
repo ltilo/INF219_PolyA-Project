@@ -23,9 +23,9 @@ extractRaw <- function(path2file){
   return(df)
 }
 
-#' Plot raw data as graph
+#' Plot raw data as graph. Plots also PolyA if the rawData contains PolyA column.
 #' 
-#' @param rawData Dataframe containing raw data and time you want to plot
+#' @param rawData Dataframe containing raw data and time you want to plot, additional PolyA column
 #' @param showPolyA True if you want to mark PolyA in the plot, otherwise false (column PolyA must exist)
 #' @return The ggplot2 plot that is plotting the data
 plotRaw <- function(rawData, showPolyA = FALSE){
@@ -36,6 +36,7 @@ plotRaw <- function(rawData, showPolyA = FALSE){
 }
 
 #' Plot all raw data from given *.fast5 filelist. The raw data will be plotted on top of each other.
+#' (The plot you get is just chaos, TODO: normalization of time, is this even possible?)
 #' 
 #' @param f5FileList List over *.fast5 that you want to plot the raw from.
 #' @return The ggplot2 plot that shows the data on top of each other
@@ -126,70 +127,46 @@ calcStatOfRaw <- function(rawData, scopeSize = 10){
   return(stats)
 }
 
-#' Find polyA tail (not working correctly yet)
+#' Find polyA tail (may working correctly in some case but still working)
 #' 
 #' @param rawData Dataframe containing the rawData you want to find a PolyA on. 
 #' @return Dataframe containing rawData with additional PolyA column (binary, 0 or 1)
 findPolyA <- function(rawData){
   rawData$PolyA <- 0
+  scopeSize <- 10
+  stat <- calcStatOfRaw(rawData, scopeSize)
   
-  stat <- calcStatOfRaw(rawData)
+  # I except a polyA at specific height, between e.g. 700 and 900 (maybe with some threshold)
+  hTable <- rle(as.numeric(( as.numeric(stat$Mean > 700)) & (as.numeric(stat$Mean < 900))))
   
-  # Finding possible beginning of polyA
-  starts <- which(stat$Mean < 500) # where I except that a polyA starts below 500
-  starts <- starts[starts > (1000/10)] # where 1000 is the minimum time threshold and 10 the scope size of stat 
-  
-  # Evaluate if there is a PolyA
-  for(v in starts){
-    idx = 1
-    while(!FALSE){
-      
-      if((v+idx) > length(stat$Mean)) { break() }
-      
-      if(stat$Mean[v+idx] > stat$Mean[v+idx-1]){
-        if(stat$Mean[v+idx] > 750){ # where I except that polyA is growing to higher than 750
-          # At this point, v has high proberbility to be startpoint
-          #i <- (v*10):((v+idx)*10)
-          #rawData$PolyA[i] <- 1;
-          endPolyA <- v + idx
-          
-          # Evaluate length of polyA
-          c <- rle(as.numeric(stat$Mean[v+idx:length(stat$Mean)] > 700)) # where 700 is my polyA-end threshold
-          i = 1
-          while(!FALSE){
-            val <- c$values[i]
-            len <- c$lengths[i]
-            
-            if(val == 1){
-              if(len > 10){ # where 10 is my minimum length threshold
-                endPolyA <- endPolyA + len 
-              }
-              else{ break() }
-            }
-            else{
-              # Check if this is noisy drop in polyA 
-              len2 <- c$lengths[i+1]
-              if(len2 > 10){ # where 10 is my minimum length threshold
-                endPolyA <- endPolyA + len
-              }
-              else { break() }
-            }
-            i <- i + 1
-          }
-          # Mark possible tail
-          rawData$PolyA[(v*10):((endPolyA)*10)] <- 1
-        }
-      }
-      else{
-        break()
-      }
+  # I except not a polyA right at beginning, so there is some time threshold, e.g. 2000 in raw data
+  idx <- 1
+  len <- length(hTable$lengths)
+  while(idx <= len){
+    if(sum(hTable$lengths[1:idx]) > (2000/scopeSize)){
       idx <- idx + 1
+      break()
     }
+    idx <- idx + 1
   }
   
+  # Check for polyA, given a minimum length e.g 200 steps in raw data
+  startPolyA <- -1
+  endPolyA <- -1
+  while(idx <= len){
+    if(hTable$values[idx] == 1){
+      if(hTable$lengths[idx] > (200/scopeSize)){
+        startPolyA <- sum(hTable$lengths[1:(idx-1)]) * scopeSize
+        endPolyA <- startPolyA + (hTable$lengths[idx] * scopeSize)
+        rawData$PolyA[startPolyA:endPolyA] <- 1
+      }
+    }
+    idx <- idx + 1
+  }
   
-  # TODO find polyA length, start, end
-  
+  # Mark polyA if existing
+  #if(startPolyA > 0 && endPolyA > 0)
+  #  rawData$PolyA[startPolyA:endPolyA] <- 1
   
   return(rawData)
 }
