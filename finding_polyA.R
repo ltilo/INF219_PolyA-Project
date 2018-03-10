@@ -11,7 +11,7 @@ f5List <- paste0(path_0, f5FileList)
 #' Get raw data from one *.fast5 file
 #' 
 #' @param path2file The path to the nanopore *.fast5 file to read in
-#' @return Dataframe containing raw data and time, raw data is normalized
+#' @return Dataframe containing raw data and time
 extractRaw <- function(path2file){
   tmpPath <- h5ls(path2file)[(which(h5ls(path2file) == "/Raw/Reads") + 1) ,1]
   data.raw <- h5read(path2file, tmpPath)$Signal
@@ -65,9 +65,9 @@ plotRaw <- function(rawData, showPolyA = FALSE){
 # ggplot(raw.plot, aes(x=Time)) + geom_line(aes(y=Raw, colour="Raw")) + geom_line(aes(y=Mean, colour="Mean")) + scale_color_manual(values=c("blue", "#FE2E2E"))
 
 
-########################################################################################
+##########################################################################################
 # Math function & Find PolyA
-########################################################################################
+##########################################################################################
 
 #' Calculate kind of "running" mean with a alpha value to simplyfy the raw data. 
 #' 
@@ -211,7 +211,7 @@ findPolyA <- function(rawData){
   # to find the exact beginning by going backwards from polyA in data, checking height of 
   # datapoints.
   
-  # TODO: At the end of polyA I except that max-min for stat scopes changes.
+  # TODO: At the end of polyA I assume that max-min for stat scopes changes.
   # Mean of data also changes as the sample will goes up and down more crazy
   # Better end of polyA can be detected by checking if a data points are near the mean
   # of the polyA with some threshold
