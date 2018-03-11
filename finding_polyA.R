@@ -148,26 +148,22 @@ findPolyA <- function(rawData){
   
   # I assume a polyA at specific height (maybe with some threshold).
   # In normalized data e.g. between 0 and 1,5
-  hTable <- rle(as.numeric(( as.numeric(stat$Mean > 0)) & (as.numeric(stat$Mean < 1.5))))
+  hTable <- rle(as.numeric((as.numeric(stat$Mean > 0.2)) & (as.numeric(stat$Mean < 1.5))))
   hTable$lengths <- hTable$lengths * scopeSize
   len <- length(hTable$lengths)
   
   # Looping throw data, looking for PolyA
   idx <- 1
   while((idx + 5) <= len){
-    possiblePolyA <- FALSE
     
     # Before polyA, I assume that the raw seq is lower than 0 over a long time threshold
     # e.g. about 950 seems to work great. 
-    if(hTable$values[idx] == 0 && hTable$lengths[idx] > 950)
+    if(hTable$values[idx] == 0 && hTable$lengths[idx] > 950){
       possiblePolyA <- TRUE
-    
-    # Check for polyA
-    if(possiblePolyA){
       sIdx <- idx
       idx <- idx + 1
-      
-      # Check for noisy beginning of PolyA with a small pattern-threshold of e.g. 30 and
+        
+      # Check for noisy beginning of PolyA with a small pattern-threshold of e.g. 100 and
       # with stepsize/range of 2 (idx+1 and idx+3). I assume a minimum length of PolyA 
       # with e.g. about 200 steps in data
       if(hTable$lengths[idx] <= 200){
@@ -177,18 +173,18 @@ findPolyA <- function(rawData){
           tmpC <- c((idx+1), (idx+3))
           if(tmpIdx < (idx+3))
             tmpC <- tmpC[1]
-          
-          if(max(as.numeric(hTable$lengths[tmpC] > 30)) == 0){
+            
+          if(max(as.numeric(hTable$lengths[tmpC] > 100)) == 0){
             possiblePolyA <- TRUE
-            idx <- tmpIdx #add
+            idx <- tmpIdx
           }
         }
       }
-      
+        
       # Find end of PolyA
       if(possiblePolyA){
         sPolyA <- sum(hTable$lengths[1:sIdx])
-        
+          
         # PolyA may have drops, detecting these by a threshold e.g. 150
         while((idx+2) < len){
           if(hTable$lengths[idx+1] < 150 && hTable$lengths[idx+2] > 150)
@@ -196,9 +192,9 @@ findPolyA <- function(rawData){
           else
             break()
         }
-        
+          
         ePolyA <- sum(hTable$lengths[1:idx])
-        
+          
         # Mark PolyA in data and terminate loop
         rawData$PolyA[sPolyA:ePolyA] <- 1
         break()
@@ -214,7 +210,8 @@ findPolyA <- function(rawData){
   # TODO: At the end of polyA I assume that max-min for stat scopes changes.
   # Mean of data also changes as the sample will goes up and down more crazy
   # Better end of polyA can be detected by checking if a data points are near the mean
-  # of the polyA with some threshold
+  # of the polyA with some threshold e.g. check if points in the end are much higher
+  # than the mean of 80% polyA
   
   View(data.frame(hTable$values, hTable$lengths))
   
