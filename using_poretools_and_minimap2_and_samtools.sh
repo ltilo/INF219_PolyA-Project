@@ -37,11 +37,12 @@ poretools fastq 0/ > shield_pass_0.fastq
 # Show head of the fastq file and check if the file seems to be fine
 head shield_pass_0.fastq
 
-# Using minimap2 aligner
-~/Application/minimap2/minimap2 -ax splice -k14 -t 8 -uf /Bartel/Danio_rerio.Zv9.fa shield_pass_0.fastq > shield_pass_0.sam 
+# Using minimap2 aligner (2 min on my mashine)
+~/Application/minimap2/minimap2 -ax splice -k14 -t 8 -uf Bartel/Danio_rerio.Zv9.fa shield_pass_0.fastq > shield_pass_0.sam 
 
 # Using samtools to convert sam file to bam file
-samtools view -Sb shield_pass_0.sam > shield_pass_0.bam
+#samtools view -Sb shield_pass_0.sam > shield_pass_0.bam
+~/Application/samtools/1.7/bin/samtools view -Sb shield_pass_0.sam > shield_pass_0.bam
 
 ###############################################################################
 # Running Poretools, MiniMap2 aligner & Samtools on all data
@@ -56,7 +57,7 @@ poretools fastq shield.tar > shield_pass.fastq
 head shield_pass.fastq
 
 # Using minimap2 aligner
-~/Application/minimap2/minimap2 -ax splice -l14 -t 8 -uf /Bartel/Danio_rerio.Zv9.fa shield_pass.fastq > shield_pass.sam
+~/Application/minimap2/minimap2 -ax splice -k14 -t 8 -uf Bartel/Danio_rerio.Zv9.fa shield_pass.fastq > shield_pass.sam
 
 # Using samtools to convert sam file to bam file
-samtools view -Sb shield_pass.sam > shield_pass.bam
+~/Application/samtools/1.7/bin/samtools view -Sb shield_pass.sam > shield_pass.bam

@@ -1,11 +1,12 @@
 library(rhdf5)
 library(ggplot2)
+library(gridExtra)
 
 path_0 <- "../Data/0/"
 f5List <- paste0(path_0, f5FileList)
 
 ##########################################################################################
-# Extract raw from *.fast5 and plot the data
+# Extract raw from *.fast5 and plot data functions
 ##########################################################################################
 
 #' Get raw data from one *.fast5 file
@@ -37,7 +38,25 @@ plotRaw <- function(rawData, showPolyA = FALSE){
     return(ggplot(rawData, aes(Time, Raw)) + geom_line())
 }
 
-#' #' Plot all raw data from given *.fast5 filelist. The raw data will be plotted on 
+#' This function will read in all given raw data, find polyA, mark polyA and plot the 
+#' data. The plot will be saved to a subfolder called "Plots". 
+#' Speed is ca. 60 plots/saved-images per minute on my intel i3 mashine. 
+#' 
+#' @param path2File Charactervector containing all path to raw *.fast5 files
+#' @param path_plot The path to the folder where you want to save the plots/images
+plotAndSaveAll <- function(path2File, path_plot){
+  idx <-  1;
+  while(idx <= length(path2File)){
+    raw <- extractRaw(path2File[idx])
+    polyA <- findPolyA(raw)
+    raw <- markPolyA(raw, polyA)
+    plot <- plotRaw(raw, T)
+    ggsave(paste0(idx, ".png"), plot = plot, path = path_plot, width = 17.3, height = 7.06, dpi=75)
+    idx <- idx + 1;
+  }
+}
+
+#' #' Plot all raw data from given *.fast5 filelist. The raw data will be plotted on
 #' #' top of each other.
 #' #' (The plot you get is just chaos)
 #' #'
@@ -45,18 +64,18 @@ plotRaw <- function(rawData, showPolyA = FALSE){
 #' #' @return The ggplot2 plot that shows the data on top of each other
 #' plotAllRaw <- function(f5FileList){
 #'   plot <- ggplot()
-#'   #colors <- c("#89C5DA", "#DA5724", "#74D944", "#CE50CA", "#3F4921", "#C0717C", 
-#'   #"#CBD588", "#5F7FC7", "#673770", "#D3D93E", "#38333E", "#508578", "#D7C1B1", 
-#'   #"#689030", "#AD6F3B", "#CD9BCD", "#D14285", "#6DDE88", "#652926", "#7FDCC0", 
+#'   #colors <- c("#89C5DA", "#DA5724", "#74D944", "#CE50CA", "#3F4921", "#C0717C",
+#'   #"#CBD588", "#5F7FC7", "#673770", "#D3D93E", "#38333E", "#508578", "#D7C1B1",
+#'   #"#689030", "#AD6F3B", "#CD9BCD", "#D14285", "#6DDE88", "#652926", "#7FDCC0",
 #'   #"#C84248", "#8569D5", "#5E738F", "#D1A33D", "#8A7C64", "#599861")
 #' 
 #'   for(f5 in f5FileList){
 #'     rawData <- extractRaw(f5)
-#'     rawData.stats <- calcStatOfRaw(rawData)
-#'     if(length(rawData$Raw) > 20000)
-#'       plot <- plot + geom_line(data = rawData.stats[1:(20000/10),], aes(x=Time, y=Mean))
-#'     else
-#'       plot <- plot + geom_line(data = rawData.stats, aes(x=Time, y=Mean))
+#'     rawData$Raw <- scale(rawData$Raw)
+#'     rawData.stats <- calcMeanOfRaw(rawData, 10)
+#'     rawData.stats$Time <- rawData.stats$Time/(10*length(rawData.stats$Time))
+#'     
+#'     plot <- plot + geom_line(data = rawData.stats, aes(x=Time, y=Mean))
 #'   }
 #'   return(plot)
 #' }
@@ -69,85 +88,46 @@ plotRaw <- function(rawData, showPolyA = FALSE){
 # Math function & Find PolyA
 ##########################################################################################
 
-#' Calculate kind of "running" mean with a alpha value to simplyfy the raw data. 
-#' 
-#' @param rawData Dataframe containing raw data you want to process
-#' @param alphaV The alpha value let you control how much you want to smooth out the mean
-#' @return Dataframe containing mean, reverse mean and time on the data.
-calcMeanOfRaw <- function(rawData, alphaV = 0.05){
-  raw <- rawData$Raw
-  revRaw <- rev(raw)
-  
-  meanA <- vector(mode = "double", length = 0)
-  meanB <- vector(mode = "double", length = 0)
-  
-  meanA[1] <- raw[1]
-  meanA[2] <- mean(raw[1:2])
-  meanB[1] <- revRaw[1]
-  meanB[2] <- mean(revRaw[1:2])
-  
-  for(value in c(2:(length(raw)-1))){
-    meanA[length(meanA)+1] <- meanA[length(meanA)] * (1-alphaV) + 
-      mean(raw[value:(value+1)]) * alphaV
-    meanB[length(meanB)+1] <- meanB[length(meanB)] * (1-alphaV) + 
-      mean(revRaw[value:(value+1)]) * alphaV
-  }
-  df <- data.frame(meanA, rev(meanB), rawData$Time)
-  colnames(df) <- c("Mean", "MeanB", "Time")
-  return(df)
-}
 
-
-#' Run over data with a scope and calculate some stats for every scope 
-#' (mean, max, min, max-min)
+#' Run over data with a scope and calculate mean for every scope
 #' 
 #' @param scopeSize The size of the scope
 #' @param rawData Dataframe containing the raw data you want to process
-#' @return Dataframe containing the calculated stats
-calcStatOfRaw <- function(rawData, scopeSize = 10){
+#' @return Dataframe containing the calculated mean stats
+calcMeanOfRaw <- function(rawData, scopeSize = 10){
   raw <- rawData$Raw
-  
   meanOfScopes <- vector(mode = "double", length = 0)
-  maxOfScopes <- vector(mode = "double", length = 0)
-  minOfScopes <- vector(mode = "double", length = 0)
-  varOfScopes <- vector(mode = "double", length = 0)
   
   idx = 1
   while(!FALSE){
     idx2 = idx + scopeSize
     if(idx2 >= length(raw)) break()
-    
     meanOfScopes[length(meanOfScopes)+1] <- mean(raw[idx:idx2])
-    maxOfScopes[length(maxOfScopes)+1] <- max(raw[idx:idx2])
-    minOfScopes[length(minOfScopes)+1] <- min(raw[idx:idx2])
-    varOfScopes[length(varOfScopes)+1] <- maxOfScopes[length(maxOfScopes)] - 
-      minOfScopes[length(minOfScopes)]
-    
     idx <- idx2
   }
   
-  timeOfScopes <- 1:length(varOfScopes)
+  timeOfScopes <- 1:length(meanOfScopes)
   timeOfScopes <- timeOfScopes * scopeSize
   
-  stats <- data.frame(meanOfScopes, varOfScopes, maxOfScopes, minOfScopes, timeOfScopes)
-  colnames(stats) <- c("Mean", "Var", "Max", "Min", "Time")
+  stats <- data.frame(meanOfScopes, timeOfScopes)
+  colnames(stats) <- c("Mean", "Time")
   return(stats)
 }
 
-#' Find polyA tail (seems working correctly in most cases, but I'm still working on it)
+#' Find polyA tail (seems working correctly in most cases, needs fine-tuning)
 #' 
 #' @param rawData Dataframe containing the rawData you want to find a PolyA on. 
-#' @return Dataframe containing rawData with additional PolyA column (binary, 0 or 1)
+#' @return Dataframe containing start, end and length of PolyA. The function
+#' marks the PolyA with an additional column in raw data.
 findPolyA <- function(rawData){
-  rawData$PolyA <- 0
-  scopeSize <- 10
+  scopeSize <- 10; sPolyA <- 0; ePolyA <- 0;
   
   # Make sure data is normalized and compute stats
   rawData$Raw <- scale(rawData$Raw)
-  stat <- calcStatOfRaw(rawData, scopeSize)
+  stat <- calcMeanOfRaw(rawData, scopeSize)
   
   # I assume a polyA at specific height (maybe with some threshold).
-  # In normalized data e.g. between 0 and 1,5
+  # In normalized data e.g. between 0.2 and 1,5
   hTable <- rle(as.numeric((as.numeric(stat$Mean > 0.2)) & (as.numeric(stat$Mean < 1.5))))
   hTable$lengths <- hTable$lengths * scopeSize
   len <- length(hTable$lengths)
@@ -194,26 +174,46 @@ findPolyA <- function(rawData){
         }
           
         ePolyA <- sum(hTable$lengths[1:idx])
-          
-        # Mark PolyA in data and terminate loop
-        rawData$PolyA[sPolyA:ePolyA] <- 1
         break()
       }
     }
     idx <- idx + 1
   }
   
-  # TODO: I assume that polyA begins in the lower region growing up to over 0  so I want 
-  # to find the exact beginning by going backwards from polyA in data, checking height of 
-  # datapoints.
-  
-  # TODO: At the end of polyA I assume that max-min for stat scopes changes.
-  # Mean of data also changes as the sample will goes up and down more crazy
-  # Better end of polyA can be detected by checking if a data points are near the mean
-  # of the polyA with some threshold e.g. check if points in the end are much higher
-  # than the mean of 80% polyA
-  
-  View(data.frame(hTable$values, hTable$lengths))
-  
+  # Prepare result and return it
+  result <- data.frame(sPolyA, ePolyA, ePolyA-sPolyA)
+  colnames(result) <- c("PolyA_Start", "PolyA_End", "PolyA_Length")
+  return(result)
+}
+
+#' This functions marks the polyA in the raw data
+#' 
+#' @param rawData The raw data you want to mark the PolyA on
+#' @param polyA The dataframe returned from findPolyA() or one row from statsPolyA() 
+#' conatining information about start and end of the PolyA
+#' @return Raw data with additional polyA column, marking the polyA
+markPolyA <- function(rawData, polyA){
+  rawData$PolyA <- 0
+  rawData$PolyA[polyA$PolyA_Start:polyA$PolyA_End] <- 1
   return(rawData)
+}
+
+#' This function reads the given raw data, finds the polyA for every raw and return it.
+#' 
+#' @param f5List Charactervector containing path to all *.fast5 you want to process
+#' @return dataframe containing information about start, end and length of PolyA 
+statsPolyA <- function(f5List){
+  polyA_data <- data.frame(
+    PolyA_Start = integer(),
+    PolyA_End = integer(),
+    PolyA_Length = integer()
+  )
+  
+  for(f5 in f5List){
+    raw <- extractRaw(f5)
+    polyA <- findPolyA(raw)
+    polyA_data <- rbind(polyA_data, polyA)
+  }
+  
+  return(polyA_data)
 }

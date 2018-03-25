@@ -15,14 +15,14 @@ bam <- readGAlignments(path_bam, use.names = T)
 gtf = makeTxDbFromGFF(path_gtf, format="gtf")
 
 # Making reference transcripts
-transcripts <- exonsBy(gtf, by = "tx")
+transcripts <- exonsBy(gtf, by = "tx", use.names=T)
 
 # TODO Filter only coding genes
-
+transcripts <- transcripts[names(cdsBy(gtf, by = "tx", use.names = T))]
 
 # Finding overlaps
-hits = findOverlaps(transcripts, bam) # hits object containing all hits
-# hits = countOverlaps(transcripts, foo) # Just an Integer array, need hits-object
+hits <- findOverlaps(transcripts, bam) # hits object containing all hits
+# hits <- countOverlaps(transcripts, foo) # Just an Integer array, need hits-object
 
 # Seperate all overlaps by name, all seq from bam that have hits with transcripts
 traceNames <- names(bam[to(hits)])
@@ -65,3 +65,6 @@ find_fast5_filenames <- function(path_fastq, traceNames) {
 
 f5FileList <- find_fast5_filenames(path_fastq, traceNames)
 
+# Path to first 4000 data
+path_f4000 <- "../Data/0/"
+f5List <- paste0(path_f4000, f5FileList)
