@@ -9,6 +9,9 @@ the fast5 files. In this file you can see what I did to show the example data.
 In this file you can see my steps how to create the *.bam file from the raw
 data. I used poretools, minimap2 aligner and samtools.
 
+### main.R
+This is my main R-script using all the function and plotting the result
+
 ### finding_overlap_and_traceback.R
 In this file I show what I did so far to finding overlaps. I also wrote a
 function that can be used for backtracing to the *.fast5 files

@@ -7,9 +7,9 @@ library(GenomicFeatures)
 #########################################################################################
 
 # Reading stuff
-path_bam <- "../Data/shield_pass_0.bam"
-path_gtf <- "../Data/Bartel/Danio_rerio.Zv9.79.gtf"
-path_fastq <- "../Data/shield_pass_0.fastq"
+#path_bam <- "../Data/shield_pass_0.bam"
+#path_gtf <- "../Data/Bartel/Danio_rerio.Zv9.79.gtf"
+#path_fastq <- "../Data/shield_pass_0.fastq"
 
 bam <- readGAlignments(path_bam, use.names = T)
 gtf = makeTxDbFromGFF(path_gtf, format="gtf")
@@ -17,32 +17,34 @@ gtf = makeTxDbFromGFF(path_gtf, format="gtf")
 # Making reference transcripts
 transcripts <- exonsBy(gtf, by = "tx", use.names=T)
 
-# TODO Filter only coding genes
+# Filter only coding genes
 transcripts <- transcripts[names(cdsBy(gtf, by = "tx", use.names = T))]
 
 # Finding overlaps
 hits <- findOverlaps(transcripts, bam) # hits object containing all hits
-# hits <- countOverlaps(transcripts, foo) # Just an Integer array, need hits-object
 
 # Seperate all overlaps by name, all seq from bam that have hits with transcripts
-traceNames <- names(bam[to(hits)])
+traceNames <- unique(names(bam[to(hits)]))
 
-# Other stuff that may be useful?
-#transcripts[from(hits)] # all transcripts that have hits with bam
 
 #########################################################################################
 # Traceback to *.fast5 files that overlaps 
 #########################################################################################
 
-#' This function finds the names of the corresponding *.fast5 files
+#' This function finds the names of the corresponding *.fast5 files based on the fastQ
+#' file. 
 #' 
 #' @param path_fastq String, Path to the fastq file containing all filenames
-#' @param traceNames Character vector containing traceNames that overlaps to reference
-#' @return Character vector containing *.fast5 filenames that matches traceNames
+#' @param traceNames Character vector containing names that overlaps to reference
+#' @return Dataframe containing *.fast5 filenames that matches with traceNames
 find_fast5_filenames <- function(path_fastq, traceNames) {
   t <- traceNames
   f <- file(path_fastq, "r")
-  fast5_filenames <- vector(mode = "character", length = 0)
+  fast5_filenames <- data.frame(
+    fast5_filename = character(),
+    traceName = character()
+  )
+  
   while(!FALSE) {
     line = readLines(f, n = 1)
     if ( length(line) == 0 ) break
@@ -54,17 +56,19 @@ find_fast5_filenames <- function(path_fastq, traceNames) {
       # Check if no match
       if(is.na(pos)) next
       # If match, add filename to file-list
-      fast5_filenames[length(fast5_filenames)+1] <- paste0(splitLine[2], ".fast5")
-      # Delete all entries for this match at the trace list for better performance
-      t <- t[! t %in% splitLine[1]]
+      #fast5_filenames[length(fast5_filenames)+1] <- paste0(splitLine[2], ".fast5")
+      
+      df <- data.frame(paste0(splitLine[2], ".fast5"), splitLine[1])
+      colnames(df) <- c("fast5_filename", "traceName")
+      
+      fast5_filenames <- rbind(fast5_filenames, df)
     }
   }
   close(f)
   return(fast5_filenames)
 }
 
-f5FileList <- find_fast5_filenames(path_fastq, traceNames)
-
 # Path to first 4000 data
-path_f4000 <- "../Data/0/"
-f5List <- paste0(path_f4000, f5FileList)
+#path_0 <- "../Data/0/"
+f5List <- find_fast5_filenames(path_fastq, traceNames)
+f5List$fast5_path <- paste0(path_0, f5List$fast5_filename)

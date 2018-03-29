@@ -1,12 +1,8 @@
 library(rhdf5)
 library(ggplot2)
-library(gridExtra)
-
-path_0 <- "../Data/0/"
-f5List <- paste0(path_0, f5FileList)
 
 ##########################################################################################
-# Extract raw from *.fast5 and plot data functions
+# Extract data from *.fast5 -- functions
 ##########################################################################################
 
 #' Get raw data from one *.fast5 file
@@ -16,6 +12,7 @@ f5List <- paste0(path_0, f5FileList)
 extractRaw <- function(path2file){
   tmpPath <- h5ls(path2file)[(which(h5ls(path2file) == "/Raw/Reads") + 1) ,1]
   data.raw <- h5read(path2file, tmpPath)$Signal
+  H5close()
   
   time <- c(1:length(data.raw))
   #time <- time/4000 # Time in seconds
@@ -23,6 +20,21 @@ extractRaw <- function(path2file){
   colnames(df) <- c("Raw", "Time")
   return(df)
 }
+
+#' This function will extract and return the actual dwellTime per base
+#' 
+#' @param path2fil The path to the nanopore *.fast5 file to extract
+#' @return Numeric value that is representing the dwellTime for one base
+extractDwellTimePerBP <- function(path2file){
+  tmpPath <- h5ls(path2file)[which(h5ls(path2file) == "/Analyses/Basecall_1D_000/BaseCalled_template")[1], 1]
+  data.event <- h5read(path2file, tmpPath)$Events
+  H5close()
+  return((tail(data.event$start, n=1)+tail(data.event$length, n=1)-data.event$start[1])/sum(data.event$move))
+}
+
+##########################################################################################
+# Plot functions
+##########################################################################################
 
 #' Plot raw data as graph. Plots also PolyA if the rawData contains PolyA column.
 #' 
@@ -40,7 +52,7 @@ plotRaw <- function(rawData, showPolyA = FALSE){
 
 #' This function will read in all given raw data, find polyA, mark polyA and plot the 
 #' data. The plot will be saved to a subfolder called "Plots". 
-#' Speed is ca. 60 plots/saved-images per minute on my intel i3 mashine. 
+#' NB! Speed is ca. 60 plots/saved-images per minute on my intel i3 mashine. 
 #' 
 #' @param path2File Charactervector containing all path to raw *.fast5 files
 #' @param path_plot The path to the folder where you want to save the plots/images
@@ -56,38 +68,12 @@ plotAndSaveAll <- function(path2File, path_plot){
   }
 }
 
-#' #' Plot all raw data from given *.fast5 filelist. The raw data will be plotted on
-#' #' top of each other.
-#' #' (The plot you get is just chaos)
-#' #'
-#' #' @param f5FileList List over *.fast5 that you want to plot the raw from.
-#' #' @return The ggplot2 plot that shows the data on top of each other
-#' plotAllRaw <- function(f5FileList){
-#'   plot <- ggplot()
-#'   #colors <- c("#89C5DA", "#DA5724", "#74D944", "#CE50CA", "#3F4921", "#C0717C",
-#'   #"#CBD588", "#5F7FC7", "#673770", "#D3D93E", "#38333E", "#508578", "#D7C1B1",
-#'   #"#689030", "#AD6F3B", "#CD9BCD", "#D14285", "#6DDE88", "#652926", "#7FDCC0",
-#'   #"#C84248", "#8569D5", "#5E738F", "#D1A33D", "#8A7C64", "#599861")
-#' 
-#'   for(f5 in f5FileList){
-#'     rawData <- extractRaw(f5)
-#'     rawData$Raw <- scale(rawData$Raw)
-#'     rawData.stats <- calcMeanOfRaw(rawData, 10)
-#'     rawData.stats$Time <- rawData.stats$Time/(10*length(rawData.stats$Time))
-#'     
-#'     plot <- plot + geom_line(data = rawData.stats, aes(x=Time, y=Mean))
-#'   }
-#'   return(plot)
-#' }
-
 # Other plot
-# ggplot(raw.plot, aes(x=Time)) + geom_line(aes(y=Raw, colour="Raw")) + geom_line(aes(y=Mean, colour="Mean")) + scale_color_manual(values=c("blue", "#FE2E2E"))
-
+# ggplot(raw.plot, aes(x=Time)) + geom_line(aes(y=Raw, colour="Raw")) + geom_line(aes(y=Mean, colour="Mean")) + scale_color_manual(values=c("blue", "#FE2E2E")
 
 ##########################################################################################
-# Math function & Find PolyA
+# Math functions & Find PolyA functions
 ##########################################################################################
-
 
 #' Run over data with a scope and calculate mean for every scope
 #' 
@@ -116,9 +102,8 @@ calcMeanOfRaw <- function(rawData, scopeSize = 10){
 
 #' Find polyA tail (seems working correctly in most cases, needs fine-tuning)
 #' 
-#' @param rawData Dataframe containing the rawData you want to find a PolyA on. 
-#' @return Dataframe containing start, end and length of PolyA. The function
-#' marks the PolyA with an additional column in raw data.
+#' @param rawData Dataframe containing the rawData you want to find a PolyA on.
+#' @return Dataframe containing start, end and length of PolyA in DwellTime. 
 findPolyA <- function(rawData){
   scopeSize <- 10; sPolyA <- 0; ePolyA <- 0;
   
@@ -198,22 +183,37 @@ markPolyA <- function(rawData, polyA){
   return(rawData)
 }
 
-#' This function reads the given raw data, finds the polyA for every raw and return it.
+#' This function reads in the filelist, finds the polyA for every raw and converts
+#' dwellTime to BasePair
+#' NB! Runtime is slow, 5 minutes for 2909 samples on my intel i3 mashine
 #' 
-#' @param f5List Charactervector containing path to all *.fast5 you want to process
+#' @param f5List dataframe from find_fast5_filenames() containing name and path to fast5
+#' files you want to process
 #' @return dataframe containing information about start, end and length of PolyA 
 statsPolyA <- function(f5List){
   polyA_data <- data.frame(
     PolyA_Start = integer(),
     PolyA_End = integer(),
-    PolyA_Length = integer()
+    PolyA_Length = integer(),
+    DwellTimePerBP = numeric()
   )
   
-  for(f5 in f5List){
+  for(f5 in f5List$fast5_path){
     raw <- extractRaw(f5)
+    dwellPerBP <- extractDwellTimePerBP(f5)
+    lraw <- length(raw$Raw)
     polyA <- findPolyA(raw)
-    polyA_data <- rbind(polyA_data, polyA)
+    
+    len <- polyA$PolyA_Length/dwellPerBP
+    st <- (lraw - polyA$PolyA_End)/dwellPerBP
+    en <- (lraw - polyA$PolyA_Start)/dwellPerBP 
+    
+    df <- data.frame(st, en, len, dwellPerBP)
+    colnames(df) <- c("PolyA_Start", "PolyA_End", "PolyA_Length", "DwellTimePerBP")
+    
+    polyA_data <- rbind(polyA_data, df)
   }
   
-  return(polyA_data)
+  df <- data.frame(f5List[, c(3,1,2)], polyA_data, stringsAsFactors = FALSE)
+  return(df)
 }
