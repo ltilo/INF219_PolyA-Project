@@ -44,7 +44,8 @@ nanopore <- data.frame(
   tail_length.comma_seperated = character(),
   tag_count = integer(),
   mean_length = numeric(),
-  median_length = numeric()
+  median_length = numeric(),
+  mean_dwell_length = numeric()
 )
 for(sampl in unique(newHits$queryHits)){
   txId <- names(transcripts[sampl])
@@ -53,15 +54,17 @@ for(sampl in unique(newHits$queryHits)){
   allSubj <- polyA$fast5_filename[allSubj]
   median_length <- median(allLength)
   mean_length <- mean(allLength)
+  mean_dwell_length <- mean(polyA$PolyA_Length_DwellTime[allSubj])
   
   df <- data.frame(
     txId, paste(allSubj, collapse = ","), paste(allLength, collapse = ","),
-    length(allLength), mean(allLength), median(allLength), stringsAsFactors = F
+    length(allLength), mean(allLength), median(allLength), mean_dwell_length, 
+    stringsAsFactors = F
   )
   colnames(df) <- colnames(nanopore)
   nanopore <- rbind(nanopore, df)
 }
-rm(df, sampl, txId, allSubj, allLength, median_length, mean_length)
+rm(df, sampl, txId, allSubj, allLength, median_length, mean_length, mean_dwell_length)
 
 ## Plot the requested plots. 
 # Nanopore length distr.
@@ -80,11 +83,16 @@ rm(tmp)
 
 # Nanopore vs bartel (dist_median_values_subset_of_standards_zv9)
 tmp <- merge(nanopore[,c(1,5)], b.dmv[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
+# tmp <- merge(nanopore[,c(1,7)], b.dmv[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
 colnames(tmp) <- c("transcript_id", "n", "b")
 ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
-  geom_point(color="steelblue") + theme_minimal() +
-  labs(title="PolyA length (nanopore vs dist_median_values_subset_of_standards_zv9)",
-       x="Nanopore polyA length", y="dist_median_values_subset_of_standards_zv9 polyA length")
+ geom_point(color="steelblue") + theme_minimal() +
+ labs(title="PolyA length (nanopore vs dist_median_values_subset_of_standards_zv9)",
+      x="Nanopore polyA length", y="dist_median_values_subset_of_standards_zv9 polyA length")
+
+# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
+#   labs(title="PolyA length (nanopore vs dist_median_values_subset_of_standards_zv9)",
+#        x="Nanopore polyA length in dwelltime", y="dist_median_values_subset_of_standards_zv9 polyA length")
 
 n_vs_b.dmv_cor <- cor(tmp$n, tmp$b)
 n_vs_b.dmv_N <- length(tmp$n)
@@ -99,11 +107,16 @@ rm(tmp)
 
 # Nanopore vs bartel (dist_all_values_all_standards_zv9)
 tmp <- merge(nanopore[,c(1,5)], b.dav[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
+# tmp <- merge(nanopore[,c(1,7)], b.dav[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
 colnames(tmp) <- c("transcript_id", "n", "b")
 ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
   geom_point(color="steelblue") + theme_minimal() +
   labs(title="PolyA length (nanopore vs dist_all_values_all_standards_zv9)",
        x="Nanopore polyA length", y="dist_all_values_all_standards_zv9 polyA length")
+
+# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
+#   labs(title="PolyA length (nanopore vs dist_all_values_all_standards_zv9)",
+#        x="Nanopore polyA length in dwelltime", y="dist_all_values_all_standards_zv9 polyA length")
 
 n_vs_b.dav_cor <- cor(tmp$n, tmp$b)
 n_vs_b.dav_N <- length(tmp$n)
@@ -118,12 +131,17 @@ rm(tmp)
 
 # Nanopore vs bartel (dist_from_publication)
 tmp <- merge(nanopore[,c(1,5)], b.dfp[,c(1,4)], by.x="transcript_id", by.y="Transcript.ID")
+#tmp <- merge(nanopore[,c(1,7)], b.dfp[,c(1,4)], by.x="transcript_id", by.y="Transcript.ID")
 colnames(tmp) <- c("transcript_id", "n", "b")
 tmp$b[is.na(tmp$b)] <- 0
 ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
   geom_point(color="steelblue") + theme_minimal() +
   labs(title="PolyA length (nanopore vs dist_from_publication)",
        x="Nanopore polyA length", y="dist_from_publication polyA length")
+
+# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
+#   labs(title="PolyA length (nanopore vs dist_from_publication)",
+#        x="Nanopore polyA length in dwelltime", y="dist_from_publication polyA length")
 
 n_vs_b.dfp_cor <- cor(tmp$n, tmp$b)
 n_vs_b.dfp_N <- length(tmp$n)
@@ -135,3 +153,7 @@ ggplot(tmp, aes(x=l, fill=class)) + geom_histogram(aes(y=..density..), alpha=0.5
   labs(title="PolyA length density (nanopore vs dist_from_publication)",
        x="polyA length in bp")
 rm(tmp)
+
+# Dwelltime per one basepair vs. fastq
+ggplot(polyA, aes(x=Fastq_Length, y=DwellTimePerBP)) + geom_point(color="orange") + 
+  theme_minimal() + labs(title="Fastq length vs. Dwelltime Per One Basepair")

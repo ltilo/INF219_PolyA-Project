@@ -24,12 +24,30 @@ extractRaw <- function(path2file){
 #' This function will extract and return the actual dwellTime per base
 #' 
 #' @param path2fil The path to the nanopore *.fast5 file to extract
+#' @param dwellTimePolyAEnd The dwellTime where the polyA ends in the sample
 #' @return Numeric value that is representing the dwellTime for one base
-extractDwellTimePerBP <- function(path2file){
+extractDwellTimePerBP <- function(path2file, dwellTimePolyAEnd){
   tmpPath <- h5ls(path2file)[which(h5ls(path2file) == "/Analyses/Basecall_1D_000/BaseCalled_template")[1], 1]
   data.event <- h5read(path2file, tmpPath)$Events
   H5close()
-  return((tail(data.event$start, n=1)+tail(data.event$length, n=1)-data.event$start[1])/sum(data.event$move))
+  
+  baseIdx <- which(data.event$start >= dwellTimePolyAEnd)[1]
+  len <- length(data.event$move)
+  return((tail(data.event$start, n=1)+tail(data.event$length, n=1)-data.event$start[baseIdx])/sum(data.event$move[baseIdx:len]))
+}
+
+extractFastqLength <- function(path2file, dwellTimePolyAEnd){
+  tmpPath <- h5ls(path2file)[which(h5ls(path2file) == "/Analyses/Basecall_1D_000/BaseCalled_template")[1], 1]
+  data.event <- h5read(path2file, tmpPath)$Fastq
+  H5close()
+  fastq <- strsplit(data.event, "\n")[[1]][2]
+  
+  # Should I cut the fastq such that it matches witch moves?
+  #baseIdx <- which(data.event$Fastq >= dwellTimePolyAEnd)[1]
+  #m <- sum(data.event$move[1:baseIdx])
+  #return(nchar(fastq) - m)
+  
+  return(nchar(fastq))
 }
 
 ##########################################################################################
@@ -195,23 +213,33 @@ statsPolyA <- function(f5List){
     PolyA_Start = integer(),
     PolyA_End = integer(),
     PolyA_Length = integer(),
-    DwellTimePerBP = numeric()
+    DwellTimePerBP = numeric(),
+    Fastq_Length = numeric()
   )
   
+  percent <- 0;
   for(f5 in f5List$fast5_path){
     raw <- extractRaw(f5)
-    dwellPerBP <- extractDwellTimePerBP(f5)
     lraw <- length(raw$Raw)
     polyA <- findPolyA(raw)
+    dwellPerBP <- extractDwellTimePerBP(f5, polyA$PolyA_End)
+    fastq <- extractFastqLength(f5, polyA$PolyA_End)
     
+    # Shifting start and end position and computing length in bp
     len <- polyA$PolyA_Length/dwellPerBP
     st <- (lraw - polyA$PolyA_End)/dwellPerBP
     en <- (lraw - polyA$PolyA_Start)/dwellPerBP 
     
-    df <- data.frame(st, en, len, dwellPerBP)
-    colnames(df) <- c("PolyA_Start", "PolyA_End", "PolyA_Length", "DwellTimePerBP")
+    df <- data.frame(st, en, len, dwellPerBP, polyA$PolyA_Length, fastq)
+    colnames(df) <- c("PolyA_Start", "PolyA_End", "PolyA_Length", "DwellTimePerBP", 
+                      "PolyA_Length_DwellTime", "Fastq_Length")
     
     polyA_data <- rbind(polyA_data, df)
+    
+    if(percent %% 10 == 0)
+      cat(c(percent, " samples computed! \n"))
+    
+    percent <- percent + 1
   }
   
   df <- data.frame(f5List[, c(3,1,2)], polyA_data, stringsAsFactors = FALSE)
