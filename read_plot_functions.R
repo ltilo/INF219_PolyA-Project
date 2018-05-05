@@ -105,7 +105,7 @@ makeTranscriptIdTable <- function(hits, data){
   return(finalResult)
 }
 
-computeCovariance <- function(data1, data2, mergeVec){
+computeCorrelation <- function(data1, data2, mergeVec){
   tmp <- merge(data1, data2, by.x=mergeVec[1], by.y=mergeVec[2])
   colnames(tmp) <- c("transcript_id", "n", "b")
   tmp <- tmp[!is.nan(tmp$n),]

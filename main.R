@@ -155,19 +155,19 @@ plotDensity(
 # Compute Covariance                                                                  ####
 #'########################################################################################
 
-cov1 <- computeCovariance(
+cov1 <- computeCorrelation(
   n.shield.transcriptTable[,c(1,3)], 
   b.dmv[,c(1,4)], 
   c("transcript_id", "X.transcript_id")
 )
 
-cov2 <- computeCovariance(
+cov2 <- computeCorrelation(
   n.shield.transcriptTable[,c(1,3)], 
   b.dav[,c(1,4)], 
   c("transcript_id", "X.transcript_id")
 )
 
-cov3 <- computeCovariance(
+cov3 <- computeCorrelation(
   n.shield.transcriptTable[,c(1,3)], 
   b.dfp[,c(1,4)], 
   c("transcript_id", "Transcript.ID")
