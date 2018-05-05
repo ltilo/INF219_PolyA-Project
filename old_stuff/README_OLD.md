@@ -12,9 +12,9 @@ data. I used poretools, minimap2 aligner and samtools.
 ### main.R
 This is my main R-script using all the function and plotting the result
 
-### read_plot_functions.R
-This file contains all read functions, plot functions and also some logic
-functions used by main.R
+### finding_overlap_and_traceback.R
+In this file I show what I did so far to finding overlaps. I also wrote a
+function that can be used for backtracing to the *.fast5 files
 
-### findPolyA.cpp
-In this file you can find all function I wrote to find the ployA using rcpp.
+### finding_polyA.R
+In this file you can find some function I wrote to find the ployA. 

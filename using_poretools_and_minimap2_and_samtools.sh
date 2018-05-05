@@ -47,7 +47,6 @@ head shield_pass_0.fastq
 ###############################################################################
 # Running Poretools, MiniMap2 aligner & Samtools on all data
 # (NB: This may take some time)
-# (Not done yet)
 ###############################################################################
 
 # Running poretools to obtain fastq file

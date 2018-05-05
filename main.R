@@ -1,11 +1,12 @@
-#########################################################################################
-# Main R-Script -- NB! Takes ca. 8 minutes
-#########################################################################################
+#'########################################################################################
+# Set path to files                                                                   ####
+#'########################################################################################
 
-# Set all path to first 4k Reads of nanopore data
-path_bam <- "../Data/shield_pass_0.bam"
-path_fastq <- "../Data/shield_pass_0.fastq"
-path_0 <- "../Data/0/"
+# Set all path to nanopore shield data
+path_bam <- "../Data/shield_pass.bam"
+path_fastq <- "../Data/shield_pass.fastq"
+
+path_data <- "../Data/"
 
 # Set all path to Bartel data (Shield - 6hpf)
 path_gtf <- "../Data/Bartel/Danio_rerio.Zv9.79.gtf"
@@ -13,147 +14,163 @@ path_b.dmv <- "../Data/Bartel/PAL_seq/dist_median_values_subset_of_standards_zv9
 path_b.dav <- "../Data/Bartel/PAL_seq/dist_all_values_all_standards_zv9/Dre_mock_6hpf_PAL_length_dist_all_lengths.csv"
 path_b.dfp <- "../Data/Bartel/PAL_seq/dist_from_publication/GSE52809_Dre_mock_6hpf.txt"
 
-# Find overlap and traceback to fast5 files (NB! ca. 1 minutes on my intel i3)
-print("[INFO] Finding overlap and traceback to fast5 files")
-source('finding_overlap_and_traceback.R')
+# Source necessary files
+source('read_plot_functions.R')
+Rcpp::sourceCpp('findPolyA.cpp')
 
-# Read nanopore data and find polyA (NB! ca. 5 minutes on my intel i3)
-print("[INFO] Finding polyA")
-source('finding_polyA.R')
-polyA <- statsPolyA(f5List)
+
+#'########################################################################################
+# Read *.bam and *.gtf file -- Find overlaps                                          ####
+#'########################################################################################
+
+# Read *bam and *gtf file
+bam <- readGAlignments(path_bam, use.names = T)
+gtf <- makeTxDbFromGFF(path_gtf, format="gtf")
+  
+# Making reference transcripts and filter only coding genes
+transcripts <- exonsBy(gtf, by = "tx", use.names=T)
+transcripts <- transcripts[names(cdsBy(gtf, by = "tx", use.names = T))]
+  
+# Finding overlaps
+hits <- findOverlaps(transcripts, bam)
+
+# Analyze fastQ
+fast5_register = analyzeFastQ(normalizePath(path_fastq))
+fast5_register$fast5_path <- paste0(path_data, fast5_register$fast5_path)
+fast5_register <- data.frame(fast5_register, stringsAsFactors = F)
+
+# Compute .*fast5 traceback list
+subjectHits <- unique(to(hits))
+f5list <- data.frame(subjectHits, names(bam[subjectHits]), stringsAsFactors = F)
+rm(subjectHits)
+colnames(f5list) <- c("subjectHits", "traceName")
+f5list <- merge(fast5_register, f5list, by = "traceName")
+
+
+#'########################################################################################
+# Read *.fast5 files -- Find PolyA tail                                               ####
+#'########################################################################################
+
+# Read .*fast5 files and find polyA for every sample
+n.shield.data <- read_and_findPolyA(f5list)
+
+# Save data
+write.csv(n.shield.data, "nanopore_shield_allOverlappingToBartel_polyA.csv")
+
+# Filter data
+n.shield.data <- n.shield.data[n.shield.data$startPolyA_dwelltime > 0, ]
+n.shield.data <- n.shield.data[n.shield.data$DwelltimePerBasepair < 255, ]
+n.shield.data <- n.shield.data[n.shield.data$lengthPolyA_BasePair < 500, ]
+
+# Compute final polyA table for nanopore-shield transcripts
+n.shield.transcriptTable <- makeTranscriptIdTable(hits, n.shield.data)
+n.shield.transcriptTable <- n.shield.transcriptTable[n.shield.transcriptTable$tags > 0,]
+
+# Save data
+write.csv(n.shield.transcriptTable, "nanopore_shield_transcriptId_table.csv")
+
+
+#'########################################################################################
+# Read Bartel data                                                                    ####
+#'########################################################################################
 
 # Read in Bartel data
 b.dmv <- read.csv(path_b.dmv, header = T, sep = '\t', stringsAsFactors = F)
 b.dav <- read.csv(path_b.dav, header = T, sep = '\t', stringsAsFactors = F)
 b.dfp <- read.csv(path_b.dfp, header = T, sep = '\t', stringsAsFactors = F)
 
-# Compute new hits list with new idx (NB! ca. 1 minute on my intel i3)
-subject <- vector(mode = "integer", length = 0)
-for(sampl in to(hits)){
-  newIdx <- which(polyA$traceName == names(bam[sampl]))
-  subject[length(subject)+1] <- newIdx 
-}
-newHits <- data.frame(from(hits), subject)
-colnames(newHits) <- c("queryHits", "subjectHits")
-rm(newIdx, sampl, subject)
 
-# Make the table of tables for nanopore data (NB! ca. 1 minute on my intel i3)
-nanopore <- data.frame(
-  transcript_id = character(),
-  fast5_files.comma_seperated = character(),
-  tail_length.comma_seperated = character(),
-  tag_count = integer(),
-  mean_length = numeric(),
-  median_length = numeric(),
-  mean_dwell_length = numeric()
-)
-for(sampl in unique(newHits$queryHits)){
-  txId <- names(transcripts[sampl])
-  allSubj <- newHits$subjectHits[which(newHits$queryHits == sampl)]
-  allLength <- polyA$PolyA_Length[allSubj]
-  allSubj <- polyA$fast5_filename[allSubj]
-  median_length <- median(allLength)
-  mean_length <- mean(allLength)
-  mean_dwell_length <- mean(polyA$PolyA_Length_DwellTime[allSubj])
-  
-  df <- data.frame(
-    txId, paste(allSubj, collapse = ","), paste(allLength, collapse = ","),
-    length(allLength), mean(allLength), median(allLength), mean_dwell_length, 
-    stringsAsFactors = F
+#'########################################################################################
+# Plotting                                                                            ####
+#'########################################################################################
+
+# Plot polyA length histogram
+plotHistogram(n.shield.data, 7, c("Nanopore Shield PolyA Length", "PolyA Length In Basepair"))
+
+# Plot Dwelltime Per BasePair histogram
+plotHistogram(n.shield.data, 8, c("Nanopore Shield Dwelltime Per Basepair", "Dwelltime per Basepair"))
+
+
+### Plots against Bartel data - dist_median_values_subset_of_standards_zv9 (b.dmv)
+plotScatter(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dmv[,c(1,4)], 
+  c("transcript_id", "X.transcript_id"),
+  c("Nanopore Shield Vs. dist_median_values_subset_of_standards_zv9 -- PolyA Length",
+    "Nanopore Shield PolyA Length", "dist_median_values_subset_of_standards_zv9 PolyA Length"
   )
-  colnames(df) <- colnames(nanopore)
-  nanopore <- rbind(nanopore, df)
-}
-rm(df, sampl, txId, allSubj, allLength, median_length, mean_length, mean_dwell_length)
+)
+plotDensity(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dmv[,c(1,4)], 
+  c("transcript_id", "X.transcript_id"),
+  c("Nanopore Shield Vs. dist_median_values_subset_of_standards_zv9 -- Density PolyA Length",
+    "PolyA Length In Basepair"
+  ),
+  c("Nanopore Shield", "dist_median_values_subset_of_standards_zv9")
+)
 
-## Plot the requested plots. 
-# Nanopore length distr.
-tmp <- as.data.frame(round(nanopore$mean_length))
-colnames(tmp) <- "l"
-ggplot(tmp, aes(x=l)) + geom_histogram(stat="bin", binwidth=1, fill="#ff5b5b") + theme_minimal() +
-  labs(title="Nanopore polyA length", x="polyA length in bp")
-rm(tmp)
 
-# Nanopore dwelltime per dp
-tmp <- as.data.frame(round(polyA$DwellTimePerBP))
-colnames(tmp) <- "d"
-ggplot(tmp, aes(x=d)) + geom_histogram(stat="bin", binwidth=1, fill="#ff5b5b") + theme_minimal() +
-  labs(title="Nanopore - Dwelltime for one basepair", x="DwellTime for one basepair")
-rm(tmp)
+### Plots against Bartel data - dist_all_values_all_standards_zv9 (b.dav)
+plotScatter(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dav[,c(1,4)], 
+  c("transcript_id", "X.transcript_id"),
+  c("Nanopore Shield Vs. dist_all_values_all_standards_zv9 -- PolyA Length",
+    "Nanopore Shield PolyA Length", "dist_all_values_all_standards_zv9 PolyA Length"
+  )
+)
+plotDensity(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dav[,c(1,4)], 
+  c("transcript_id", "X.transcript_id"),
+  c("Nanopore Shield Vs. dist_all_values_all_standards_zv9 -- Density PolyA Length",
+    "PolyA Length In Basepair"
+  ),
+  c("Nanopore Shield", "dist_all_values_all_standards_zv9")
+)
 
-# Nanopore vs bartel (dist_median_values_subset_of_standards_zv9)
-tmp <- merge(nanopore[,c(1,5)], b.dmv[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
-# tmp <- merge(nanopore[,c(1,7)], b.dmv[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
-colnames(tmp) <- c("transcript_id", "n", "b")
-ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
- geom_point(color="steelblue") + theme_minimal() +
- labs(title="PolyA length (nanopore vs dist_median_values_subset_of_standards_zv9)",
-      x="Nanopore polyA length", y="dist_median_values_subset_of_standards_zv9 polyA length")
 
-# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
-#   labs(title="PolyA length (nanopore vs dist_median_values_subset_of_standards_zv9)",
-#        x="Nanopore polyA length in dwelltime", y="dist_median_values_subset_of_standards_zv9 polyA length")
+### Plots against Bartel data - dist_from_publication (b.dfp)
+plotScatter(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dfp[,c(1,4)], 
+  c("transcript_id", "Transcript.ID"),
+  c("Nanopore Shield Vs. dist_from_publication -- PolyA Length",
+    "Nanopore Shield PolyA Length", "dist_from_publication PolyA Length"
+  )
+)
+plotDensity(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dfp[,c(1,4)], 
+  c("transcript_id", "Transcript.ID"),
+  c("Nanopore Shield Vs. dist_from_publication -- Density PolyA Length",
+    "PolyA Length In Basepair"
+  ),
+  c("Nanopore Shield", "dist_from_publication")
+)
 
-n_vs_b.dmv_cor <- cor(tmp$n, tmp$b)
-n_vs_b.dmv_N <- length(tmp$n)
 
-tmp$n <- round(tmp$n); tmp$b <- round(tmp$b)
-tmp <- rbind(data.frame(l=tmp$n, class="nanopore"), data.frame(l=tmp$b, class="dmv"))
-ggplot(tmp, aes(x=l, fill=class)) + geom_histogram(aes(y=..density..), alpha=0.5, 
-     position="identity", binwidth = 1) + geom_density(alpha=0.4) + 
-  labs(title="PolyA length density (dist_median_values_subset_of_standards_zv9 polyA length)",
-       x="polyA length in bp")
-rm(tmp)
+#'########################################################################################
+# Compute Covariance                                                                  ####
+#'########################################################################################
 
-# Nanopore vs bartel (dist_all_values_all_standards_zv9)
-tmp <- merge(nanopore[,c(1,5)], b.dav[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
-# tmp <- merge(nanopore[,c(1,7)], b.dav[,c(1,4)], by.x="transcript_id", by.y="X.transcript_id")
-colnames(tmp) <- c("transcript_id", "n", "b")
-ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
-  geom_point(color="steelblue") + theme_minimal() +
-  labs(title="PolyA length (nanopore vs dist_all_values_all_standards_zv9)",
-       x="Nanopore polyA length", y="dist_all_values_all_standards_zv9 polyA length")
+cov1 <- computeCovariance(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dmv[,c(1,4)], 
+  c("transcript_id", "X.transcript_id")
+)
 
-# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
-#   labs(title="PolyA length (nanopore vs dist_all_values_all_standards_zv9)",
-#        x="Nanopore polyA length in dwelltime", y="dist_all_values_all_standards_zv9 polyA length")
+cov2 <- computeCovariance(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dav[,c(1,4)], 
+  c("transcript_id", "X.transcript_id")
+)
 
-n_vs_b.dav_cor <- cor(tmp$n, tmp$b)
-n_vs_b.dav_N <- length(tmp$n)
+cov3 <- computeCovariance(
+  n.shield.transcriptTable[,c(1,3)], 
+  b.dfp[,c(1,4)], 
+  c("transcript_id", "Transcript.ID")
+)
 
-tmp$n <- round(tmp$n); tmp$b <- round(tmp$b)
-tmp <- rbind(data.frame(l=tmp$n, class="nanopore"), data.frame(l=tmp$b, class="dav"))
-ggplot(tmp, aes(x=l, fill=class)) + geom_histogram(aes(y=..density..), alpha=0.5, 
-    position="identity", binwidth = 1) + geom_density(alpha=0.4) + 
-  labs(title="PolyA length density (nanopore vs dist_all_values_all_standards_zv9)",
-       x="polyA length in bp")
-rm(tmp)
 
-# Nanopore vs bartel (dist_from_publication)
-tmp <- merge(nanopore[,c(1,5)], b.dfp[,c(1,4)], by.x="transcript_id", by.y="Transcript.ID")
-#tmp <- merge(nanopore[,c(1,7)], b.dfp[,c(1,4)], by.x="transcript_id", by.y="Transcript.ID")
-colnames(tmp) <- c("transcript_id", "n", "b")
-tmp$b[is.na(tmp$b)] <- 0
-ggplot(tmp, aes(x=n, y=b)) + geom_line(data = data.frame(x=c(0:150)), mapping = aes(x=x, y=x), color="grey") +
-  geom_point(color="steelblue") + theme_minimal() +
-  labs(title="PolyA length (nanopore vs dist_from_publication)",
-       x="Nanopore polyA length", y="dist_from_publication polyA length")
-
-# ggplot(tmp, aes(x=n, y=b)) + geom_point(color="steelblue") + theme_minimal() +
-#   labs(title="PolyA length (nanopore vs dist_from_publication)",
-#        x="Nanopore polyA length in dwelltime", y="dist_from_publication polyA length")
-
-n_vs_b.dfp_cor <- cor(tmp$n, tmp$b)
-n_vs_b.dfp_N <- length(tmp$n)
-
-tmp$n <- round(tmp$n); tmp$b <- round(tmp$b)
-tmp <- rbind(data.frame(l=tmp$n, class="nanopore"), data.frame(l=tmp$b, class="dav"))
-ggplot(tmp, aes(x=l, fill=class)) + geom_histogram(aes(y=..density..), alpha=0.5, 
-    position="identity", binwidth = 1) + geom_density(alpha=0.4) + 
-  labs(title="PolyA length density (nanopore vs dist_from_publication)",
-       x="polyA length in bp")
-rm(tmp)
-
-# Dwelltime per one basepair vs. fastq
-ggplot(polyA, aes(x=Fastq_Length, y=DwellTimePerBP)) + geom_point(color="orange") + 
-  theme_minimal() + labs(title="Fastq length vs. Dwelltime Per One Basepair")
