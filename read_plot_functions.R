@@ -34,6 +34,14 @@ read_and_findPolyA <- function(f5list, chunkNumber = 50){
         #Read event data
         tmpPath <- h5ls(path2file)[which(h5ls(path2file) == "/Analyses/Basecall_1D_000/BaseCalled_template")[1], 1]
         data.event <- h5read(path2file, tmpPath)$Events
+       
+        # Read attributes
+        tmpPath <- h5ls(path2file)[(which(h5ls(path2file) == "/Raw/Reads") + 1) ,1]
+        attribute.start_time <- h5readAttributes(path2file, tmpPath)$start_time
+        attribute.start_mux <- h5readAttributes(path2file, tmpPath)$start_mux
+        attribute.sample_frequency <- h5readAttributes(path2file, "/UniqueGlobalKey/context_tags")$sample_frequency
+        attribute.channel_number <- h5readAttributes(path2file, "/UniqueGlobalKey/channel_id")$channel_number
+        
         H5close()
         
         #Merge interesting information about the sample
@@ -41,7 +49,11 @@ read_and_findPolyA <- function(f5list, chunkNumber = 50){
           eventMean = scale(data.event$mean),
           eventStart = data.event$start,
           eventMove = data.event$move,
-          eventLength = data.event$length[1]
+          eventLength = data.event$length[1],
+          attrStartTime = as.numeric(attribute.start_time),
+          attrStartMux = as.numeric(attribute.start_mux),
+          attrSampleFreq = as.numeric(attribute.sample_frequency),
+          attrChannelNum = as.numeric(attribute.channel_number)
         )
         return(data)
     }, mc.cores = cores)
@@ -109,6 +121,8 @@ computeCorrelation <- function(data1, data2, mergeVec){
   tmp <- merge(data1, data2, by.x=mergeVec[1], by.y=mergeVec[2])
   colnames(tmp) <- c("transcript_id", "n", "b")
   tmp <- tmp[!is.nan(tmp$n),]
+  tmp <- tmp[!is.na(tmp$n),]
+  tmp <- tmp[!is.nan(tmp$b),]
   tmp <- tmp[!is.na(tmp$b),]
   
   covar <- cor(tmp$n, tmp$b)
@@ -137,7 +151,7 @@ plotScatter <- function(data1, data2, mergeVec, labelVec, savePath = "Result/"){
   tmp <- tmp[!is.na(tmp$b),]
   
   plot <- ggplot(tmp, aes(x=n, y=b)) + 
-    geom_line(data = data.frame(x=c(0:300)), mapping = aes(x=x, y=x), color="lightgrey", alpha = 0.4) +
+    #geom_line(data = data.frame(x=c(0:300)), mapping = aes(x=x, y=x), color="lightgrey", alpha = 0.4) +
     geom_point(color="steelblue", alpha = 0.4) + theme_minimal() +
     labs(title=labelVec[1], x=labelVec[2], y=labelVec[3])
   ggsave(paste0(labelVec[1], ".png"), plot=plot, path=savePath, width=17.3, height=7.06, dpi=125)

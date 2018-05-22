@@ -54,10 +54,21 @@ f5list <- merge(fast5_register, f5list, by = "traceName")
 # Read .*fast5 files and find polyA for every sample
 n.shield.data <- read_and_findPolyA(f5list)
 
+# Compute additional StartTime_DevidedBy_SampleFreq_groupedByHour
+n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour <- n.shield.data$Attribute_StartTime/n.shield.data$Attribute_SampleFrequency
+n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour <- n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour / 3600
+
 # Save data
 write.csv(n.shield.data, "nanopore_shield_allOverlappingToBartel_polyA.csv")
 
+# Round and factor data
+n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour <- round(n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour)
+n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour <- as.factor(n.shield.data$StartTime_DevidedBy_SampleFreq_groupedByHour)
+n.shield.data$Attribute_StartMux <- as.factor(n.shield.data$Attribute_StartMux)
+n.shield.data$Attribute_ChannelNumber <- as.factor(n.shield.data$Attribute_ChannelNumber)
+
 # Filter data
+n.shield.dataOriginal <- n.shield.data
 n.shield.data <- n.shield.data[n.shield.data$startPolyA_dwelltime > 0, ]
 n.shield.data <- n.shield.data[n.shield.data$DwelltimePerBasepair < 255, ]
 n.shield.data <- n.shield.data[n.shield.data$lengthPolyA_BasePair < 500, ]
@@ -150,6 +161,50 @@ plotDensity(
   c("Nanopore Shield", "dist_from_publication")
 )
 
+# Plot Dwelltime Vs. DwellTimePerBp (x = Max500000, y = Max250)
+plot <- ggplot(n.shield.data, aes(x=DwellTime, y=DwelltimePerBasepair)) + geom_point(alpha = 0.005) +
+  theme_minimal() + labs(title="Nanopore Shield - Dwelltime for whole sample Vs. DwelltimePerBp") +
+  coord_cartesian(xlim=c(0, 500000), ylim=c(0, 250))
+plot
+
+# Boxplot for StartTime
+plot <- ggplot(n.shield.dataOriginal, aes(x=StartTime_DevidedBy_SampleFreq_groupedByHour, 
+          y=DwelltimePerBasepair, color=StartTime_DevidedBy_SampleFreq_groupedByHour)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot StartTime/SampleFreq grouped by hours Vs. DwellTimePerBp")
+plot
+plot <- ggplot(n.shield.data, aes(x=StartTime_DevidedBy_SampleFreq_groupedByHour, 
+                                          y=DwelltimePerBasepair, color=StartTime_DevidedBy_SampleFreq_groupedByHour)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot StartTime/SampleFreq grouped by hours Vs. DwellTimePerBp")
+plot
+rm(plot)
+
+# Boxplot for mux groups
+plot <- ggplot(n.shield.dataOriginal, aes(x=Attribute_StartMux, 
+          y=DwelltimePerBasepair, color=Attribute_StartMux)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot Attribute_StartMux Vs. DwellTimePerBp")
+plot
+plot <- ggplot(n.shield.data, aes(x=Attribute_StartMux, 
+          y=DwelltimePerBasepair, color=Attribute_StartMux)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot Attribute_StartMux Vs. DwellTimePerBp")
+plot
+rm(plot)
+
+# Boxplot for ChannelNumber
+plot <- ggplot(n.shield.dataOriginal, aes(x=Attribute_ChannelNumber, 
+          y=DwelltimePerBasepair)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot Attribute_ChannelNumber Vs. DwellTimePerBp")
+plot
+plot <- ggplot(n.shield.data, aes(x=Attribute_ChannelNumber, 
+          y=DwelltimePerBasepair)) + 
+  geom_boxplot() + theme_minimal() + 
+  labs(title="Nanopore Shield - Boxplot Attribute_ChannelNumber Vs. DwellTimePerBp")
+plot
+rm(plot)
 
 #'########################################################################################
 # Compute Covariance                                                                  ####
